@@ -8,3 +8,11 @@ export interface Organization {
 export interface CreateOrganizationRequest {
   name: string;
 }
+
+export interface OrganizationUser {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}

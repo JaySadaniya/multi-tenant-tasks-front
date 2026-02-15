@@ -10,3 +10,10 @@ export interface CreateProjectRequest {
   name: string;
   organizationId: string;
 }
+
+// Project member type matching API response
+export interface ProjectMember {
+  id: string;
+  email: string;
+  role: string;
+}
