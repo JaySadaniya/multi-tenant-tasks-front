@@ -3,6 +3,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   AuthResponse,
+  User,
 } from '../types/auth';
 import { UserRole } from '../types/auth';
 
@@ -26,5 +27,10 @@ export const register = async (
     '/users/register',
     payload,
   );
+  return response.data;
+};
+
+export const getCurrentUser = async (): Promise<User> => {
+  const response = await apiClient.get<User>('/users/me');
   return response.data;
 };

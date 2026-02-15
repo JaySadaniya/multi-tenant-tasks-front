@@ -1,48 +1,139 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import type { Project } from '../types/project';
+import * as projectApi from '../api/project';
+import { UserRole } from '../types/auth';
+import CreateOrganizationModal from '../components/CreateOrganizationModal';
+import CreateProjectModal from '../components/CreateProjectModal';
 import '../styles/auth.css';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showOrgModal, setShowOrgModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+
+  const isAdmin = user?.role === UserRole.ADMIN;
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await projectApi.getUserProjects();
+      setProjects(data);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to fetch projects';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const handleOrganizationCreated = () => {
+    // Optionally refresh data or show success message
+    console.log('Organization created successfully');
+  };
+
+  const handleProjectCreated = () => {
+    // Refresh project list
+    fetchProjects();
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-card">
-        <h1 className="dashboard-title">Dashboard</h1>
-        <p className="dashboard-subtitle">Welcome to your dashboard!</p>
+        <div className="dashboard-header">
+          <h1 className="dashboard-title">Dashboard</h1>
+          <button onClick={handleLogout} className="logout-button-small">
+            Logout
+          </button>
+        </div>
+        <p className="dashboard-subtitle">Welcome back, {user?.email}!</p>
 
         {user && (
           <div className="user-info">
-            <div className="info-row">
-              <span className="info-label">Email:</span>
-              <span className="info-value">{user.email}</span>
-            </div>
             <div className="info-row">
               <span className="info-label">Role:</span>
               <span className="info-value">{user.role}</span>
             </div>
             <div className="info-row">
-              <span className="info-label">User ID:</span>
-              <span className="info-value">{user.id}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Organization ID:</span>
-              <span className="info-value">{user.organizationId}</span>
+              <span className="info-label">Organization:</span>
+              <span className="info-value">{user.organizationName || user.organizationId}</span>
             </div>
           </div>
         )}
 
-        <button onClick={handleLogout} className="logout-button">
-          Logout
-        </button>
+        {/* RBAC-based action buttons - Only visible to ADMIN */}
+        {isAdmin && (
+          <div className="action-buttons">
+            <button onClick={() => setShowOrgModal(true)} className="btn-create">
+              <span className="btn-icon">+</span>
+              Create Organization
+            </button>
+            <button onClick={() => setShowProjectModal(true)} className="btn-create">
+              <span className="btn-icon">+</span>
+              Create Project
+            </button>
+          </div>
+        )}
+
+        <div className="projects-section">
+          <h2 className="section-title">Your Projects</h2>
+          
+          {loading && <p className="loading-text">Loading projects...</p>}
+          
+          {error && <div className="error-message">{error}</div>}
+          
+          {!loading && !error && projects.length === 0 && (
+            <p className="empty-state">
+              No projects found. {isAdmin ? 'Create your first project to get started!' : 'Contact your admin to be added to a project.'}
+            </p>
+          )}
+          
+          {!loading && !error && projects.length > 0 && (
+            <div className="projects-list">
+              {projects.map((project) => (
+                <div key={project.id} className="project-card">
+                  <h3 className="project-name">{project.name}</h3>
+                  <p className="project-meta">
+                    Created: {new Date(project.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Modals - Only render if user is ADMIN */}
+      {isAdmin && user && (
+        <>
+          <CreateOrganizationModal
+            isOpen={showOrgModal}
+            onClose={() => setShowOrgModal(false)}
+            onSuccess={handleOrganizationCreated}
+          />
+          <CreateProjectModal
+            isOpen={showProjectModal}
+            onClose={() => setShowProjectModal(false)}
+            onSuccess={handleProjectCreated}
+            organizationId={user.organizationId}
+          />
+        </>
+      )}
     </div>
   );
 };

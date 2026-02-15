@@ -10,6 +10,9 @@ export interface User {
   email: string;
   role: UserRole;
   organizationId: string;
+  organizationName?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LoginRequest {

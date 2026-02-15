@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, AuthContextType } from '../types/auth';
 import { UserRole } from '../types/auth';
@@ -19,21 +19,40 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  // Initialize state from localStorage directly to avoid cascading renders
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('token');
   });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user details when component mounts if token exists
+  useEffect(() => {
+    const fetchUser = async () => {
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        try {
+          const userData = await authApi.getCurrentUser();
+          setUser(userData);
+          setToken(storedToken);
+        } catch (error) {
+          console.error(error)
+          // Token is invalid or expired, clear it
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUser();
+  }, []);
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     setUser(response.user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
   };
 
   const register = async (
@@ -46,14 +65,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(response.user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
   };
 
   const value: AuthContextType = {
@@ -64,6 +81,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     isAuthenticated: !!token && !!user,
   };
+
+  // Show loading state while fetching user
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        fontSize: '18px'
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
